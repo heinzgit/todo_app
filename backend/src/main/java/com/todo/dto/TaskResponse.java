@@ -15,13 +15,16 @@ public class TaskResponse {
     private LocalDateTime completedAt;
     private Integer rescheduleCount;
     private String taskPriority;
+    private Long projectId;
+    private String projectName;
 
     public TaskResponse() {}
 
     public TaskResponse(Long id, String title, String description, LocalDate dueDate,
                         Boolean completed, Integer priority, LocalDateTime createdAt,
                         LocalDateTime updatedAt, LocalDateTime completedAt,
-                        Integer rescheduleCount, String taskPriority) {
+                        Integer rescheduleCount, String taskPriority,
+                        Long projectId, String projectName) {
         this.id = id;
         this.title = title;
         this.description = description;
@@ -33,6 +36,8 @@ public class TaskResponse {
         this.completedAt = completedAt;
         this.rescheduleCount = rescheduleCount;
         this.taskPriority = taskPriority;
+        this.projectId = projectId;
+        this.projectName = projectName;
     }
 
     public Long getId() { return id; }
@@ -67,4 +72,10 @@ public class TaskResponse {
 
     public String getTaskPriority() { return taskPriority; }
     public void setTaskPriority(String taskPriority) { this.taskPriority = taskPriority; }
+
+    public Long getProjectId() { return projectId; }
+    public void setProjectId(Long projectId) { this.projectId = projectId; }
+
+    public String getProjectName() { return projectName; }
+    public void setProjectName(String projectName) { this.projectName = projectName; }
 }

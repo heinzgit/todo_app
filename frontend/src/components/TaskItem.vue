@@ -20,6 +20,9 @@
         <span class="priority-badge" :class="task.taskPriority">
           {{ task.taskPriority }}
         </span>
+        <span v-if="task.projectName" class="project-badge">
+          {{ task.projectName }}
+        </span>
       </div>
     </div>
     <div class="task-actions">
@@ -223,6 +226,15 @@ function formatDate(dateStr: string): string {
 .priority-badge.low {
   color: #16a34a;
   background: #f0fdf4;
+}
+
+.project-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #eef2ff;
+  color: #4f46e5;
 }
 
 .task-actions {

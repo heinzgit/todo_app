@@ -1,0 +1,14 @@
+# Java
+backend/target/
+backend/*.class
+backend/.idea/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.idea/
+
+# General
+*.iml
+*.log
+.DS_Store

@@ -28,6 +28,8 @@ export interface Task {
   completedAt: string | null
   rescheduleCount: number
   taskPriority: 'high' | 'medium' | 'low'
+  projectId: number | null
+  projectName: string | null
 }
 
 export interface TaskRequest {
@@ -35,6 +37,19 @@ export interface TaskRequest {
   description?: string
   dueDate: string
   taskPriority?: 'high' | 'medium' | 'low'
+  projectId?: number | null
+}
+
+export interface Project {
+  id: number
+  name: string
+  description: string | null
+  createdAt: string
+}
+
+export interface ProjectRequest {
+  name: string
+  description?: string
 }
 
 export const authApi = {
@@ -79,6 +94,21 @@ export const taskApi = {
   },
   reorder(taskIds: number[]) {
     return api.put<Task[]>('/tasks/reorder', { taskIds })
+  }
+}
+
+export const projectApi = {
+  getAllProjects() {
+    return api.get<Project[]>('/projects')
+  },
+  createProject(data: ProjectRequest) {
+    return api.post<Project>('/projects', data)
+  },
+  updateProject(id: number, data: ProjectRequest) {
+    return api.put<Project>(`/projects/${id}`, data)
+  },
+  deleteProject(id: number) {
+    return api.delete(`/projects/${id}`)
   }
 }
 

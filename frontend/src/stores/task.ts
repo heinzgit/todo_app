@@ -5,8 +5,18 @@ import { taskApi, type Task, type TaskRequest } from '../api'
 export const useTaskStore = defineStore('task', () => {
   const pastCompletedTasks = ref<Task[]>([])
   const todayTasks = ref<Task[]>([])
+  const allTasks = ref<Task[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
+
+  async function fetchAllTasks() {
+    try {
+      const response = await taskApi.getAllTasks()
+      allTasks.value = response.data
+    } catch (e: any) {
+      error.value = e.response?.data?.error || 'Failed to fetch tasks'
+    }
+  }
 
   async function fetchPastCompletedTasks() {
     loading.value = true
@@ -35,16 +45,16 @@ export const useTaskStore = defineStore('task', () => {
   }
 
   async function fetchAll() {
-    await Promise.all([fetchPastCompletedTasks(), fetchTodayTasks()])
+    await Promise.all([fetchPastCompletedTasks(), fetchTodayTasks(), fetchAllTasks()])
   }
 
   async function createTask(data: TaskRequest) {
-    await taskApi.createTask(data)
+    await taskApi.createTask({ ...data, projectId: data.projectId ?? null })
     await fetchAll()
   }
 
   async function updateTask(id: number, data: TaskRequest) {
-    await taskApi.updateTask(id, data)
+    await taskApi.updateTask(id, { ...data, projectId: data.projectId ?? null })
     await fetchAll()
   }
 
@@ -76,8 +86,10 @@ export const useTaskStore = defineStore('task', () => {
   return {
     pastCompletedTasks,
     todayTasks,
+    allTasks,
     loading,
     error,
+    fetchAllTasks,
     fetchPastCompletedTasks,
     fetchTodayTasks,
     fetchAll,

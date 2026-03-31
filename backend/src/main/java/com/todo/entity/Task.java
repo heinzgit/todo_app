@@ -29,6 +29,10 @@ public class Task {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "project_id")
+    private Project project;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
@@ -92,4 +96,7 @@ public class Task {
 
     public String getTaskPriority() { return taskPriority; }
     public void setTaskPriority(String taskPriority) { this.taskPriority = taskPriority; }
+
+    public Project getProject() { return project; }
+    public void setProject(Project project) { this.project = project; }
 }

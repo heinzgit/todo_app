@@ -1,0 +1,9 @@
+# Java class files
+*.class
+
+# Maven
+target/
+
+# IDE
+.idea/
+*.iml

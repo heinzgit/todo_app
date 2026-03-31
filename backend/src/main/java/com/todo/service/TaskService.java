@@ -2,9 +2,11 @@ package com.todo.service;
 
 import com.todo.dto.TaskRequest;
 import com.todo.dto.TaskResponse;
+import com.todo.entity.Project;
 import com.todo.entity.Task;
 import com.todo.entity.User;
 import com.todo.exception.ResourceNotFoundException;
+import com.todo.repository.ProjectRepository;
 import com.todo.repository.TaskRepository;
 import com.todo.repository.UserRepository;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -22,10 +24,12 @@ public class TaskService {
 
     private final TaskRepository taskRepository;
     private final UserRepository userRepository;
+    private final ProjectRepository projectRepository;
 
-    public TaskService(TaskRepository taskRepository, UserRepository userRepository) {
+    public TaskService(TaskRepository taskRepository, UserRepository userRepository, ProjectRepository projectRepository) {
         this.taskRepository = taskRepository;
         this.userRepository = userRepository;
+        this.projectRepository = projectRepository;
     }
 
     public List<TaskResponse> getHomeTasks(String username) {
@@ -94,6 +98,13 @@ public class TaskService {
         task.setTaskPriority(request.getTaskPriority() != null ? request.getTaskPriority() : "medium");
         task.setUser(user);
 
+        if (request.getProjectId() != null) {
+            Project project = projectRepository.findById(request.getProjectId())
+                    .filter(p -> p.getUser().getId().equals(user.getId()))
+                    .orElse(null);
+            task.setProject(project);
+        }
+
         return toResponse(taskRepository.save(task));
     }
 
@@ -112,6 +123,15 @@ public class TaskService {
 
         if (request.getTaskPriority() != null) {
             task.setTaskPriority(request.getTaskPriority());
+        }
+
+        if (request.getProjectId() != null) {
+            Project project = projectRepository.findById(request.getProjectId())
+                    .filter(p -> p.getUser().getId().equals(user.getId()))
+                    .orElse(null);
+            task.setProject(project);
+        } else {
+            task.setProject(null);
         }
 
         return toResponse(taskRepository.save(task));
@@ -209,7 +229,9 @@ public class TaskService {
                 task.getUpdatedAt(),
                 task.getCompletedAt(),
                 task.getRescheduleCount(),
-                task.getTaskPriority()
+                task.getTaskPriority(),
+                task.getProject() != null ? task.getProject().getId() : null,
+                task.getProject() != null ? task.getProject().getName() : null
         );
     }
 }

@@ -13,6 +13,7 @@
     <main class="container">
       <div class="actions-bar">
         <button @click="openAddModal" class="btn btn-primary">+ Add Task</button>
+        <button @click="openProjectModal" class="btn btn-secondary">+ Add Project</button>
       </div>
 
       <div class="tabs">
@@ -36,6 +37,17 @@
           Completed Tasks
           <span v-if="taskStore.pastCompletedTasks.length > 0" class="tab-badge">
             {{ taskStore.pastCompletedTasks.length }}
+          </span>
+        </button>
+        <button
+          class="tab"
+          :class="{ active: activeTab === 'projects' }"
+          @click="activeTab = 'projects'"
+        >
+          <span class="tab-icon">📁</span>
+          Projects
+          <span v-if="projectStore.projects.length > 0" class="tab-badge">
+            {{ projectStore.projects.length }}
           </span>
         </button>
       </div>
@@ -134,6 +146,80 @@
             </div>
           </div>
         </div>
+
+        <!-- Projects Tab -->
+        <div v-if="activeTab === 'projects'">
+          <div v-if="projectStore.projects.length === 0" class="empty-state">
+            <p>No projects yet. Create one to organize your tasks!</p>
+          </div>
+          <div v-else class="project-list">
+            <div
+              v-for="project in projectStore.projects"
+              :key="project.id"
+              class="project-item"
+            >
+              <div class="project-info" @click="selectProject(project)">
+                <span class="project-name clickable">{{ project.name }}</span>
+                <span v-if="project.description" class="project-desc">{{ project.description }}</span>
+              </div>
+              <div class="project-actions">
+                <button @click="openEditProjectModal(project)" class="btn-icon" title="Edit">✏️</button>
+                <button @click="handleDeleteProject(project.id)" class="btn-icon" title="Delete">🗑️</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Project Detail View -->
+        <div v-if="activeTab === 'project-detail' && selectedProject" class="project-detail">
+          <button @click="activeTab = 'projects'" class="btn btn-secondary back-btn">← Back to Projects</button>
+          <h2 class="project-title">{{ selectedProject.name }}</h2>
+          <p v-if="selectedProject.description" class="project-description">{{ selectedProject.description }}</p>
+
+          <!-- Incomplete Tasks -->
+          <div v-if="projectIncompleteTasks.length > 0" class="task-group">
+            <div class="group-header">
+              <span class="group-title">Incomplete</span>
+              <span class="group-count">{{ projectIncompleteTasks.length }}</span>
+            </div>
+            <div class="task-list">
+              <TaskItem
+                v-for="task in projectIncompleteTasks"
+                :key="task.id"
+                :task="task"
+                @toggle="handleToggle(task.id)"
+                @copy="handleCopy(task.id)"
+                @reschedule="openRescheduleModal(task)"
+                @edit="openEditModal(task)"
+                @delete="handleDelete(task.id)"
+              />
+            </div>
+          </div>
+
+          <!-- Completed Tasks -->
+          <div v-if="projectCompletedTasks.length > 0" class="task-group">
+            <div class="group-header completed">
+              <span class="group-title">Completed</span>
+              <span class="group-count">{{ projectCompletedTasks.length }}</span>
+            </div>
+            <div class="task-list">
+              <TaskItem
+                v-for="task in projectCompletedTasks"
+                :key="task.id"
+                :task="task"
+                @toggle="handleToggle(task.id)"
+                @copy="handleCopy(task.id)"
+                @reschedule="openRescheduleModal(task)"
+                @edit="openEditModal(task)"
+                @delete="handleDelete(task.id)"
+              />
+            </div>
+          </div>
+
+          <div v-if="projectIncompleteTasks.length === 0 && projectCompletedTasks.length === 0" class="empty-state">
+            <p>No tasks in this project.</p>
+          </div>
+        </div>
       </div>
     </main>
 
@@ -162,6 +248,15 @@
               <option value="low">Low</option>
             </select>
           </div>
+          <div class="form-group">
+            <label>Project</label>
+            <select v-model="form.projectId" class="input">
+              <option :value="null">No Project</option>
+              <option v-for="project in projectStore.projects" :key="project.id" :value="project.id">
+                {{ project.name }}
+              </option>
+            </select>
+          </div>
           <div class="modal-actions">
             <button type="button" @click="closeModals" class="btn btn-secondary">Cancel</button>
             <button type="submit" class="btn btn-primary">
@@ -188,6 +283,29 @@
         </form>
       </div>
     </div>
+
+    <!-- Project Modal -->
+    <div v-if="showProjectModal || showEditProjectModal" class="modal-overlay" @click.self="closeModals">
+      <div class="modal">
+        <h2>{{ showEditProjectModal ? 'Edit Project' : 'Add Project' }}</h2>
+        <form @submit.prevent="handleProjectSubmit">
+          <div class="form-group">
+            <label>Name</label>
+            <input v-model="projectForm.name" type="text" class="input" required />
+          </div>
+          <div class="form-group">
+            <label>Description</label>
+            <textarea v-model="projectForm.description" class="input" rows="3"></textarea>
+          </div>
+          <div class="modal-actions">
+            <button type="button" @click="closeModals" class="btn btn-secondary">Cancel</button>
+            <button type="submit" class="btn btn-primary">
+              {{ showEditProjectModal ? 'Save' : 'Add' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -197,14 +315,16 @@ import { useRouter } from 'vue-router'
 import draggable from 'vuedraggable'
 import { useAuthStore } from '../stores/auth'
 import { useTaskStore } from '../stores/task'
+import { useProjectStore } from '../stores/project'
 import TaskItem from '../components/TaskItem.vue'
-import type { Task } from '../api'
+import type { Task, Project } from '../api'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const taskStore = useTaskStore()
+const projectStore = useProjectStore()
 
-const activeTab = ref<'today' | 'history'>('today')
+const activeTab = ref<'today' | 'history' | 'projects' | 'project-detail'>('today')
 
 const today = new Date()
 today.setHours(0, 0, 0, 0)
@@ -245,6 +365,33 @@ const groupedTasks = computed(() => {
   }
 })
 
+const selectedProject = ref<Project | null>(null)
+
+const projectTasks = computed(() => {
+  if (!selectedProject.value) return []
+  return taskStore.allTasks.filter(t => t.projectId === selectedProject.value?.id)
+})
+
+const projectIncompleteTasks = computed(() => {
+  const incomplete = projectTasks.value.filter(t => !t.completed)
+  const priorityOrder: Record<string, number> = { high: 0, medium: 1, low: 2 }
+  return [...incomplete].sort((a, b) => {
+    const aOrder = priorityOrder[a.taskPriority] ?? 1
+    const bOrder = priorityOrder[b.taskPriority] ?? 1
+    return aOrder - bOrder
+  })
+})
+
+const projectCompletedTasks = computed(() => {
+  const completed = projectTasks.value.filter(t => t.completed)
+  const priorityOrder: Record<string, number> = { high: 0, medium: 1, low: 2 }
+  return [...completed].sort((a, b) => {
+    const aOrder = priorityOrder[a.taskPriority] ?? 1
+    const bOrder = priorityOrder[b.taskPriority] ?? 1
+    return aOrder - bOrder
+  })
+})
+
 const showAddModal = ref(false)
 const showEditModal = ref(false)
 const showRescheduleModal = ref(false)
@@ -253,11 +400,20 @@ const form = reactive({
   title: '',
   description: '',
   dueDate: '',
-  taskPriority: 'medium' as 'high' | 'medium' | 'low'
+  taskPriority: 'medium' as 'high' | 'medium' | 'low',
+  projectId: null as number | null
 })
 
 const editingTask = ref<Task | null>(null)
 const newDueDate = ref('')
+
+const showProjectModal = ref(false)
+const showEditProjectModal = ref(false)
+const editingProject = ref<Project | null>(null)
+const projectForm = reactive({
+  name: '',
+  description: ''
+})
 
 function handleLogout() {
   authStore.logout()
@@ -269,6 +425,7 @@ function openAddModal() {
   form.description = ''
   form.dueDate = getTodayDateString()
   form.taskPriority = 'medium'
+  form.projectId = null
   showAddModal.value = true
 }
 
@@ -294,6 +451,7 @@ function openEditModal(task: Task) {
   form.description = task.description || ''
   form.dueDate = task.dueDate
   form.taskPriority = task.taskPriority || 'medium'
+  form.projectId = task.projectId || null
   showEditModal.value = true
 }
 
@@ -309,14 +467,16 @@ async function handleSubmit() {
       title: form.title,
       description: form.description,
       dueDate: form.dueDate,
-      taskPriority: form.taskPriority
+      taskPriority: form.taskPriority,
+      projectId: form.projectId
     })
   } else {
     await taskStore.createTask({
       title: form.title,
       description: form.description,
       dueDate: form.dueDate,
-      taskPriority: form.taskPriority
+      taskPriority: form.taskPriority,
+      projectId: form.projectId
     })
   }
   closeModals()
@@ -342,12 +502,18 @@ function closeModals() {
   showAddModal.value = false
   showEditModal.value = false
   showRescheduleModal.value = false
+  showProjectModal.value = false
+  showEditProjectModal.value = false
   editingTask.value = null
+  editingProject.value = null
   form.title = ''
   form.description = ''
   form.dueDate = ''
   form.taskPriority = 'medium'
+  form.projectId = null
   newDueDate.value = ''
+  projectForm.name = ''
+  projectForm.description = ''
 }
 
 function formatDate(dateStr: string): string {
@@ -372,8 +538,48 @@ function formatDateTime(dateTimeStr: string): string {
   return `${formatDate(dateTimeStr)} ${time}`
 }
 
+function selectProject(project: Project) {
+  selectedProject.value = project
+  activeTab.value = 'project-detail'
+}
+
+function openProjectModal() {
+  projectForm.name = ''
+  projectForm.description = ''
+  showProjectModal.value = true
+}
+
+function openEditProjectModal(project: Project) {
+  editingProject.value = project
+  projectForm.name = project.name
+  projectForm.description = project.description || ''
+  showEditProjectModal.value = true
+}
+
+async function handleProjectSubmit() {
+  if (showEditProjectModal.value && editingProject.value) {
+    await projectStore.updateProject(editingProject.value.id, {
+      name: projectForm.name,
+      description: projectForm.description
+    })
+  } else {
+    await projectStore.createProject({
+      name: projectForm.name,
+      description: projectForm.description
+    })
+  }
+  closeModals()
+}
+
+async function handleDeleteProject(id: number) {
+  if (confirm('Are you sure you want to delete this project?')) {
+    await projectStore.deleteProject(id)
+  }
+}
+
 onMounted(() => {
   taskStore.fetchAll()
+  projectStore.fetchProjects()
 })
 </script>
 
@@ -580,6 +786,82 @@ onMounted(() => {
 .history-title {
   color: var(--text-secondary);
   text-decoration: line-through;
+}
+
+.project-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.project-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background: var(--card-bg);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.project-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.project-name {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.project-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.project-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-icon {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  font-size: 14px;
+  opacity: 0.7;
+}
+
+.btn-icon:hover {
+  opacity: 1;
+}
+
+.project-detail {
+  margin-top: 16px;
+}
+
+.back-btn {
+  margin-bottom: 16px;
+}
+
+.project-title {
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+.project-description {
+  color: var(--text-secondary);
+  margin-bottom: 24px;
+}
+
+.project-info.clickable {
+  cursor: pointer;
+}
+
+.project-info.clickable:hover .project-name {
+  color: var(--primary);
 }
 
 .loading, .error, .empty-state {

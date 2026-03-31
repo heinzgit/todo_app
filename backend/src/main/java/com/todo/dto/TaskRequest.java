@@ -15,6 +15,8 @@ public class TaskRequest {
 
     private String taskPriority = "medium";
 
+    private Long projectId;
+
     public TaskRequest() {}
 
     public TaskRequest(String title, String description, LocalDate dueDate) {
@@ -34,4 +36,7 @@ public class TaskRequest {
 
     public String getTaskPriority() { return taskPriority; }
     public void setTaskPriority(String taskPriority) { this.taskPriority = taskPriority; }
+
+    public Long getProjectId() { return projectId; }
+    public void setProjectId(Long projectId) { this.projectId = projectId; }
 }
