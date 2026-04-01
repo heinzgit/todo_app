@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 
 const api = axios.create({
@@ -15,6 +16,19 @@ api.interceptors.request.use((config) => {
   }
   return config
 })
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      const authStore = useAuthStore()
+      const router = useRouter()
+      authStore.logout()
+      router.push('/login')
+    }
+    return Promise.reject(error)
+  }
+)
 
 export interface Task {
   id: number
