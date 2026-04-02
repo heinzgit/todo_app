@@ -124,24 +124,24 @@
 
         <!-- History Tab -->
         <div v-if="activeTab === 'history'">
-          <div v-if="taskStore.pastCompletedTasks.length === 0" class="empty-state">
-            <p>No completed tasks yet.</p>
+          <div v-if="groupedCompletedTasks.length === 0" class="empty-state">
+            <p>No completed tasks in the last 3 months.</p>
           </div>
           <div v-else class="history-list">
-            <div
-              v-for="task in taskStore.pastCompletedTasks"
-              :key="task.id"
-              class="history-item"
-            >
-              <div class="history-date">
-                Due: {{ formatDate(task.dueDate) }}
-                <span v-if="task.completedAt" class="completed-time">
-                  · Completed: {{ formatDateTime(task.completedAt) }}
-                </span>
-              </div>
-              <div class="history-content">
-                <span class="completed-check">✓</span>
-                <span class="history-title">{{ task.title }}</span>
+            <div v-for="group in groupedCompletedTasks" :key="group.label" class="history-group">
+              <div class="history-group-header">{{ group.label }}</div>
+              <div
+                v-for="task in group.tasks"
+                :key="task.id"
+                class="history-item"
+              >
+                <div class="history-date">
+                  Due: {{ formatDate(task.dueDate) }}
+                </div>
+                <div class="history-content">
+                  <span class="completed-check">✓</span>
+                  <span class="history-title">{{ task.title }}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -391,6 +391,94 @@ const projectCompletedTasks = computed(() => {
     return aOrder - bOrder
   })
 })
+
+interface CompletedGroup {
+  label: string
+  tasks: Task[]
+}
+
+const groupedCompletedTasks = computed((): CompletedGroup[] => {
+  const now = new Date()
+  const threeMonthsAgo = new Date(now)
+  threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3)
+
+  const completed = taskStore.pastCompletedTasks.filter(t => {
+    if (!t.completedAt) return false
+    const completedDate = new Date(t.completedAt)
+    return completedDate >= threeMonthsAgo
+  })
+
+  const groups: Map<string, Task[]> = new Map()
+
+  completed.forEach(task => {
+    const completedDate = new Date(task.completedAt!)
+    const daysAgo = Math.floor((now.getTime() - completedDate.getTime()) / (1000 * 60 * 60 * 24))
+
+    let groupKey: string
+    let groupLabel: string
+
+    if (daysAgo < 7) {
+      groupKey = completedDate.toDateString()
+      groupLabel = completedDate.toDateString() === now.toDateString() ? 'Today' :
+                   completedDate.toDateString() === new Date(now.getTime() - 86400000).toDateString() ? 'Yesterday' :
+                   formatDateFull(completedDate)
+    } else {
+      const weekStart = new Date(completedDate)
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay())
+      groupKey = weekStart.toDateString()
+      const weekEnd = new Date(weekStart)
+      weekEnd.setDate(weekEnd.getDate() + 6)
+      groupLabel = `${formatDateShort(weekStart)} - ${formatDateShort(weekEnd)}`
+    }
+
+    if (!groups.has(groupKey)) {
+      groups.set(groupKey, [])
+    }
+    groups.get(groupKey)!.push(task)
+  })
+
+  const result: CompletedGroup[] = []
+  groups.forEach((tasks, key) => {
+    const firstTask = tasks[0]
+    const completedDate = new Date(firstTask.completedAt!)
+    const daysAgo = Math.floor((now.getTime() - completedDate.getTime()) / (1000 * 60 * 60 * 24))
+    result.push({
+      label: daysAgo < 7 ? getDayLabel(completedDate) : groups.get(key) ? getWeekLabel(new Date(key)) : '',
+      tasks
+    })
+  })
+
+  result.sort((a, b) => {
+    const aDate = new Date(a.tasks[0].completedAt!)
+    const bDate = new Date(b.tasks[0].completedAt!)
+    return bDate.getTime() - aDate.getTime()
+  })
+
+  return result
+})
+
+function formatDateFull(date: Date): string {
+  return date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
+}
+
+function formatDateShort(date: Date): string {
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+function getDayLabel(date: Date): string {
+  const now = new Date()
+  if (date.toDateString() === now.toDateString()) return 'Today'
+  const yesterday = new Date(now)
+  yesterday.setDate(yesterday.getDate() - 1)
+  if (date.toDateString() === yesterday.toDateString()) return 'Yesterday'
+  return formatDateFull(date)
+}
+
+function getWeekLabel(weekStart: Date): string {
+  const weekEnd = new Date(weekStart)
+  weekEnd.setDate(weekEnd.getDate() + 6)
+  return `${formatDateShort(weekStart)} - ${formatDateShort(weekEnd)}`
+}
 
 const showAddModal = ref(false)
 const showEditModal = ref(false)
@@ -761,7 +849,21 @@ onMounted(() => {
 .history-list {
   display: flex;
   flex-direction: column;
+  gap: 16px;
+}
+
+.history-group {
+  display: flex;
+  flex-direction: column;
   gap: 8px;
+}
+
+.history-group-header {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
 }
 
 .history-item {
